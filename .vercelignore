@@ -1,0 +1,10 @@
+.git
+.github
+.vercel
+node_modules
+release
+desktop-dist
+work
+*.log
+.env*
+!.env.example

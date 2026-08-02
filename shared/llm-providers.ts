@@ -14,6 +14,13 @@ interface LlmProviderPreset {
 
 export const LLM_PROVIDER_PRESETS = [
   {
+    id: 'chatgpt',
+    label: 'ChatGPT subscription',
+    protocol: 'openai',
+    baseUrl: '/api/chatgpt',
+    defaultModel: 'gpt-5.5',
+  },
+  {
     id: 'anthropic',
     label: 'Anthropic · Claude',
     protocol: 'anthropic',

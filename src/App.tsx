@@ -10,7 +10,7 @@ import { buildProjectExport, importProjectPackage } from './persist/projectTrans
 import { purgeProjectCascade } from './persist/mediaCleanup';
 import { applyLiveCaps, applyLiveKeyStatus, applyLiveModels } from './agent/capabilities';
 import { fetchCodexStatus } from './agent/codex/client';
-import { applyAgentModelStatus, applyCodexAgentStatus } from './agent/model-selection';
+import { applyAgentModelStatus, applyChatGptWebStatus, applyCodexAgentStatus } from './agent/model-selection';
 import { useT } from './i18n/locale';
 
 const Editor = lazy(() => import('./Editor'));
@@ -42,12 +42,21 @@ interface LiveAgentStatus {
 }
 
 async function syncAgentBackends(isActive: () => boolean): Promise<void> {
-  const [keyResult, codexResult] = await Promise.allSettled([
+  const [keyResult, codexResult, chatGptResult] = await Promise.allSettled([
     fetch('/api/keys').then(async (response): Promise<LiveAgentStatus> => {
       if (!response.ok) throw new Error('Agent key status is unavailable.');
       return response.json() as Promise<LiveAgentStatus>;
     }),
     fetchCodexStatus(),
+    fetch('/api/chatgpt/session', { credentials: 'same-origin' }).then(async (response) => {
+      if (!response.ok) return [] as string[];
+      const session = await response.json() as { status?: string };
+      if (session.status !== 'authenticated') return [] as string[];
+      const models = await fetch('/api/chatgpt/models', { credentials: 'same-origin' });
+      if (!models.ok) return [] as string[];
+      const value = await models.json() as unknown;
+      return Array.isArray(value) ? value.filter((model): model is string => typeof model === 'string') : [];
+    }),
   ]);
   if (!isActive()) return;
   let savedCodexModel: string | undefined;
@@ -66,6 +75,7 @@ async function syncAgentBackends(isActive: () => boolean): Promise<void> {
   if (codexResult.status === 'fulfilled') {
     applyCodexAgentStatus(codexResult.value, savedCodexModel, savedCodexReasoningEffort);
   }
+  if (chatGptResult.status === 'fulfilled') applyChatGptWebStatus(chatGptResult.value);
 }
 
 function Splash({ text }: { text: string }) {

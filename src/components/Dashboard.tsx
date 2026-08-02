@@ -6,6 +6,7 @@ import { BrandMark, Icon, OpenChatCutWordmark } from './icons';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { McpGuideDialog } from './settings/McpGuide';
 import { SkinPicker } from './settings/SkinPicker';
+import { LoginWithChatGPT } from '@opencoredev/loginwithchatgpt-react';
 import { LocaleToggle } from './TopBar';
 import { MediaCleanupDialog } from '../media/MediaCleanupDialog';
 import { t, useT } from '../i18n/locale';
@@ -193,6 +194,10 @@ export function Dashboard({ projects, onOpen, onNew, onRename, onDuplicate, onDe
           </button>
           <LocaleToggle />
           <SkinPicker />
+          <LoginWithChatGPT
+            consent={{ appName: 'OpenChatCut' }}
+            onAuthenticated={() => window.location.reload()}
+          />
           <button onClick={() => setSettingsOpen(true)} title={t('设置 · API 密钥')} className="cc-header-btn" style={settingsBtn}>
             <Icon name="sliders" size={16} />
           </button>

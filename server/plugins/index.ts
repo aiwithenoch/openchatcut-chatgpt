@@ -34,6 +34,7 @@ import { firecrawlPlugin } from "./firecrawl.ts";
 import { settingsPlugin } from "./settings.ts";
 import { externalAgentPlugin } from "./external-agent.ts";
 import { codexAgentPlugin } from "./codex-agent.ts";
+import { chatGptAuthPlugin } from "./chatgpt-auth.ts";
 import { llmProxyPlugin } from "./llm-proxy.ts";
 import { resourcePreviewPlugin } from "./resource-preview.ts";
 import { getKey } from "../keystore.ts";
@@ -50,6 +51,7 @@ export function serverPlugins(): Plugin[] {
     extensionStorePlugin(),
     externalAgentPlugin(),
     codexAgentPlugin(),
+    chatGptAuthPlugin(),
     settingsPlugin(),
     exportStagePlugin(),
     exportPlugin(),

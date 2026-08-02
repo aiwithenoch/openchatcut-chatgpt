@@ -13,7 +13,7 @@ interface KeyStateLike {
   readonly configured: boolean;
 }
 
-export type AgentModelBackend = 'api' | 'codex';
+export type AgentModelBackend = 'api' | 'codex' | 'chatgpt';
 
 export interface AgentModelChoice {
   readonly id: string;
@@ -54,6 +54,7 @@ function apiChoices(
   models: Record<string, string>,
 ): AgentModelChoice[] {
   return LLM_PROVIDER_PRESETS.flatMap((preset): AgentModelChoice[] => {
+    if (preset.id === 'chatgpt') return [];
     const names = llmProviderConfigNames(preset.id);
     const savedModel = models[names.model]?.trim();
     if (isLocalLlmProvider(preset.id) ? !savedModel : !keys[names.apiKey]?.configured) return [];
@@ -66,6 +67,26 @@ function apiChoices(
       model,
     }];
   });
+}
+
+export function applyChatGptWebStatus(models: readonly string[]): void {
+  const previous = currentChoice();
+  const withoutWeb = snapshot.choices.filter((choice) => choice.backend !== 'chatgpt');
+  const web: AgentModelChoice[] = models.map((model) => ({
+    id: `chatgpt:${model}`,
+    backend: 'chatgpt',
+    provider: 'chatgpt',
+    providerLabel: 'ChatGPT subscription',
+    model,
+  }));
+  const choices = [...withoutWeb, ...web];
+  const active = choices.find((choice) => choice.id === previous?.id)
+    ?? (previous?.backend === 'chatgpt' ? web[0] : undefined)
+    ?? choices[0];
+  if (active?.backend === 'api' || active?.backend === 'chatgpt') {
+    setLlmConfig(active.provider, active.model);
+  }
+  emit({ activeId: active?.id ?? '', choices, loaded: snapshot.loaded });
 }
 
 export function subscribeAgentModels(listener: () => void): () => void {
@@ -88,13 +109,13 @@ export function applyAgentModelStatus(
   const previous = currentChoice();
   const choices = [
     ...apiChoices(keys, models),
-    ...snapshot.choices.filter((choice) => choice.backend === 'codex'),
+    ...snapshot.choices.filter((choice) => choice.backend !== 'api'),
   ];
   const savedProvider = normalizeLlmProvider(models.LLM_PROVIDER);
   const configuredApi = choices.find(
     (choice) => choice.backend === 'api' && choice.provider === savedProvider,
   ) ?? choices.find((choice) => choice.backend === 'api');
-  const preferred = previous?.backend === 'codex'
+  const preferred = previous && previous.backend !== 'api'
     ? choices.find((choice) => choice.id === previous.id)
     : configuredApi;
   const active = preferred ?? choices[0];
@@ -110,7 +131,7 @@ export function applyCodexAgentStatus(
   savedReasoningEffort?: string,
 ): void {
   const previous = currentChoice();
-  const api = snapshot.choices.filter((choice) => choice.backend === 'api');
+  const nonCodex = snapshot.choices.filter((choice) => choice.backend !== 'codex');
   const model = savedModel?.trim() ?? '';
   const codex: AgentModelChoice[] = status.installed && status.account?.type === 'chatgpt'
     ? [{
@@ -122,17 +143,17 @@ export function applyCodexAgentStatus(
         reasoningEffort: savedReasoningEffort?.trim() ?? '',
       }]
     : [];
-  const choices = [...api, ...codex];
+  const choices = [...nonCodex, ...codex];
   const active = choices.find((choice) => choice.id === previous?.id)
     ?? (previous?.backend === 'codex' ? codex[0] : undefined)
     ?? choices[0];
-  if (active?.backend === 'api') setLlmConfig(active.provider, active.model);
+  if (active?.backend === 'api' || active?.backend === 'chatgpt') setLlmConfig(active.provider, active.model);
   emit({ activeId: active?.id ?? '', choices, loaded: true });
 }
 
 export function selectAgentModel(id: string): void {
   const active = snapshot.choices.find((choice) => choice.id === id);
   if (!active || active.id === snapshot.activeId) return;
-  if (active.backend === 'api') setLlmConfig(active.provider, active.model);
+  if (active.backend === 'api' || active.backend === 'chatgpt') setLlmConfig(active.provider, active.model);
   emit({ ...snapshot, activeId: active.id });
 }

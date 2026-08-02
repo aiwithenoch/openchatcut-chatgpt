@@ -32,6 +32,7 @@ const ORIGIN = typeof window !== 'undefined' ? window.location.origin : 'http://
 // native operation path, which also supports compatible APIs such as
 // `/v1beta/openai/chat/completions`.
 const PROXY_API_BASE = `${ORIGIN}/llm`;
+const CHATGPT_API_BASE = `${ORIGIN}/api/chatgpt`;
 const PROXY_KEY = 'proxy-injects-the-real-key';
 
 
@@ -51,6 +52,13 @@ const factoryPromises = new Map<LlmProvider, Promise<ModelFactory>>();
 let openAiProviderPromise: Promise<OpenAiProvider> | null = null;
 
 function providerOptions(provider: LlmProvider): ProviderOptions {
+  if (provider === 'chatgpt') {
+    return {
+      baseURL: CHATGPT_API_BASE,
+      apiKey: PROXY_KEY,
+      headers: {},
+    };
+  }
   return {
     baseURL: PROXY_API_BASE,
     apiKey: PROXY_KEY,
@@ -102,11 +110,28 @@ function openAiProvider(): Promise<OpenAiProvider> {
   return openAiProviderPromise;
 }
 
+let chatGptProviderPromise: Promise<OpenAiProvider> | null = null;
+
+function chatGptProvider(): Promise<OpenAiProvider> {
+  if (chatGptProviderPromise) return chatGptProviderPromise;
+  chatGptProviderPromise = import('@ai-sdk/openai')
+    .then(({ createOpenAI }) => createOpenAI(providerOptions('chatgpt')))
+    .catch((error: unknown) => {
+      chatGptProviderPromise = null;
+      throw error;
+    });
+  return chatGptProviderPromise;
+}
+
 export async function getLanguageModel(
   provider: LlmProvider = PROVIDER,
   model: string = MODEL,
   openAiApiMode: OpenAiApiMode = OPENAI_API_MODE,
 ): Promise<ConfiguredLanguageModel> {
+  if (provider === 'chatgpt') {
+    const chatgpt = await chatGptProvider();
+    return chatgpt.responses(model);
+  }
   if (protocolForProvider(provider) === 'openai') {
     const openai = await openAiProvider();
     return openAiApiMode === 'chat' ? openai.chat(model) : openai.responses(model);
